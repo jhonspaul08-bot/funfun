@@ -91,3 +91,19 @@ def get_total_transactions():
     count = c.fetchone()[0]
     conn.close()
     return count
+
+def get_total_deposit():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'deposit'")
+    total = c.fetchone()[0]
+    conn.close()
+    return total
+
+def get_total_withdraw():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COALESCE(SUM(ABS(amount)), 0) FROM transactions WHERE type = 'withdraw'")
+    total = c.fetchone()[0]
+    conn.close()
+    return total
