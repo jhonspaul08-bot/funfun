@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
@@ -7,13 +8,15 @@ from telegram.ext import (
 )
 from database import (
     init_db, get_or_create_user, get_balance, update_balance,
-    add_transaction, get_history, get_total_users, get_total_transactions
+    add_transaction, get_history, get_total_users, get_total_transactions,
+    get_total_deposit, get_total_withdraw
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "MASUKKAN_TOKEN_DISINI")
+OWNER_ID = 5941886275
 
 # ===================== KEYBOARD =====================
 def main_keyboard():
@@ -25,6 +28,30 @@ def main_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+# ===================== ANIMASI LAMPU MERAH =====================
+async def show_maintenance(message):
+    frames = [
+        "🔴⚫⚫\n\n*Sedang Perbaikan...*",
+        "⚫🔴⚫\n\n*Sedang Perbaikan...*",
+        "⚫⚫🔴\n\n*Sedang Perbaikan...*",
+        "⚫🔴⚫\n\n*Sedang Perbaikan...*",
+        "🔴⚫⚫\n\n*Sedang Perbaikan...*",
+        "⚫🔴⚫\n\n*Sedang Perbaikan...*",
+        "⚫⚫🔴\n\n*Sedang Perbaikan...*",
+        "⚫🔴⚫\n\n*Sedang Perbaikan...*",
+    ]
+    msg = await message.reply_text("🔴⚫⚫\n\n*Sedang Perbaikan...*", parse_mode="Markdown")
+    for frame in frames[1:]:
+        await asyncio.sleep(0.5)
+        await msg.edit_text(frame, parse_mode="Markdown")
+    await asyncio.sleep(0.5)
+    await msg.edit_text(
+        "🔴 *Sedang Perbaikan*\n\n"
+        "Fitur ini sedang dalam perbaikan.\n"
+        "Silakan coba beberapa saat lagi.",
+        parse_mode="Markdown"
+    )
+
 # ===================== /start =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -32,7 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         f"👋 Halo, *{user.first_name}*!\n\n"
-        f"Selamat datang di *WalletBot* 💼\n\n"
+        f"Selamat datang di *DANAPAY* 💼\n\n"
         f"✅ Akun kamu sudah terdaftar.\n"
         f"Gunakan menu di bawah untuk mulai:"
     )
@@ -53,6 +80,12 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===================== DEPOSIT =====================
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+
+    if user.id != OWNER_ID:
+        await show_maintenance(update.message)
+        return
+
     keyboard = [
         [InlineKeyboardButton("Rp5.000", callback_data="deposit_5000"),
          InlineKeyboardButton("Rp10.000", callback_data="deposit_10000")],
@@ -61,10 +94,7 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Rp100.000", callback_data="deposit_100000")],
         [InlineKeyboardButton("❌ Batal", callback_data="cancel")],
     ]
-    text = (
-        "📥 *Deposit*\n\n"
-        "Pilih nominal deposit:"
-    )
+    text = "📥 *Deposit*\n\nPilih nominal deposit:"
     await update.message.reply_text(
         text, parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -95,6 +125,11 @@ async def deposit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===================== WITHDRAW =====================
 async def withdraw_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+
+    if user.id != OWNER_ID:
+        await show_maintenance(update.message)
+        return
+
     get_or_create_user(user.id, user.username or "", user.full_name)
     bal = get_balance(user.id)
 
@@ -203,7 +238,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔄 *Exchange* — Lihat kurs mata uang\n"
         "📋 */cekhis* — Riwayat transaksi\n"
         "📊 *Statistik* — Statistik bot\n\n"
-        "📩 Hubungi admin: @Swp_rank"
+        "📩 Hubungi admin: @AdminKamu"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -224,11 +259,15 @@ async def sk(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def statistik(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_users = get_total_users()
     total_tx = get_total_transactions()
+    total_dep = get_total_deposit()
+    total_wd = get_total_withdraw()
 
     text = (
-        "📊 *Statistik Bot*\n\n"
+        "📊 *Statistik DANAPAY*\n\n"
         f"👥 Total pengguna: *{total_users}*\n"
-        f"💸 Total transaksi: *{total_tx}*"
+        f"💸 Total transaksi: *{total_tx}*\n"
+        f"📥 Total deposit: *Rp{total_dep:,.0f}*\n"
+        f"📤 Total withdraw: *Rp{total_wd:,.0f}*"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -257,7 +296,7 @@ def main():
         pattern="^cancel$"
     ))
 
-    logger.info("Bot started!")
+    logger.info("DANAPAY Bot started!")
     app.run_polling()
 
 if __name__ == "__main__":
